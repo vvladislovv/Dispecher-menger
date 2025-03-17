@@ -2,9 +2,11 @@ import psutil
 import platform
 import os
 from modules.utils.logger import get_logger
+from modules.database.db_service import get_db_service
 
-# Инициализация логгера
+# Инициализация логгера и сервиса БД
 logger = get_logger()
+db_service = get_db_service()
 
 
 class SystemInfo:
@@ -71,10 +73,31 @@ class ProcessHandler:
     def terminate_process(pid):
         """Завершение процесса по PID"""
         logger.warning(f"Попытка завершения процесса с PID: {pid}")
+
+        # Получаем информацию о процессе перед завершением
+        process_info = None
+        try:
+            process = psutil.Process(int(pid))
+            name = process.name()
+            memory = f"{process.memory_info().rss / (1024 * 1024):.2f}"
+            cpu = f"{process.cpu_percent(interval=0.1):.1f}"
+            status = process.status()
+            process_info = [name, pid, memory, cpu, status]
+        except Exception as e:
+            logger.warning(
+                f"Не удалось получить полную информацию о процессе перед завершением: {str(e)}"
+            )
+
+        # Пытаемся завершить процесс
         try:
             process = psutil.Process(int(pid))
             process.terminate()
             logger.info(f"Процесс с PID {pid} успешно завершен")
+
+            # Сохраняем информацию о завершенном процессе в базу данных
+            if process_info:
+                db_service.add_terminated_process(process_info)
+
             return True
         except psutil.NoSuchProcess:
             logger.error(f"Процесс с PID {pid} не найден")
@@ -93,9 +116,15 @@ class ProcessHandler:
                     import subprocess
 
                     subprocess.run(["sudo", "kill", "-9", str(pid)], check=True)
+
                 logger.info(
                     f"Процесс с PID {pid} успешно завершен с повышенными привилегиями"
                 )
+
+                # Сохраняем информацию о завершенном процессе в базу данных
+                if process_info:
+                    db_service.add_terminated_process(process_info, "system (elevated)")
+
                 return True
             except Exception as e:
                 logger.exception(

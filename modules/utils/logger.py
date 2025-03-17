@@ -8,6 +8,7 @@ class Logger:
     _instance = None
     _log_file = None
     _chat_callback = None
+    _db_service = None
 
     @classmethod
     def get_instance(cls):
@@ -30,6 +31,23 @@ class Logger:
         log_path = os.path.join(log_dir, f"log_{current_date}.log")
         self._log_file = open(log_path, "a", encoding="utf-8")
 
+        # Инициализируем сервис базы данных позже, чтобы избежать циклических импортов
+        self._db_service = None
+        self._db_initialized = False
+
+    def _init_db_service(self):
+        """Инициализирует сервис базы данных при первом использовании"""
+        if not self._db_initialized:
+            try:
+                # Импортируем здесь, чтобы избежать циклических импортов
+                from modules.database.db_service import get_db_service
+
+                self._db_service = get_db_service()
+                self._db_initialized = True
+            except ImportError:
+                # Если модуль еще не доступен, пропускаем инициализацию
+                pass
+
     def set_chat_callback(self, callback):
         """Устанавливает функцию обратного вызова для отображения логов в чате"""
         self._chat_callback = callback
@@ -42,9 +60,10 @@ class Logger:
         file_name = os.path.basename(caller_info.filename)
         line_number = caller_info.lineno
         function_name = caller_info.function
+        source = f"{file_name}:{function_name}:{line_number}"
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_message = f"[{timestamp}] [{level}] [{file_name}:{function_name}:{line_number}] {message}"
+        log_message = f"[{timestamp}] [{level}] [{source}] {message}"
 
         # Запись в файл
         self._log_file.write(log_message + "\n")
@@ -53,6 +72,15 @@ class Logger:
         # Отправка в чат, если установлен callback
         if self._chat_callback:
             self._chat_callback(log_message)
+
+        # Сохранение в базу данных (отложенная инициализация)
+        try:
+            self._init_db_service()
+            if self._db_service and self._db_initialized:
+                self._db_service.add_log(level, source, message)
+        except Exception as e:
+            # Не используем self.error() здесь, чтобы избежать рекурсии
+            print(f"Ошибка при сохранении лога в базу данных: {str(e)}")
 
         return log_message
 
@@ -83,9 +111,15 @@ class Logger:
             self._log_file.close()
 
 
-# Функция для удобного получения экземпляра логгера
+# Создаем глобальный экземпляр логгера
+_logger_instance = None
+
+
 def get_logger():
-    return Logger.get_instance()
+    global _logger_instance
+    if _logger_instance is None:
+        _logger_instance = Logger.get_instance()
+    return _logger_instance
 
 
 # Убедимся, что функция доступна при импорте

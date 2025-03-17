@@ -2,7 +2,6 @@ import flet as ft
 import threading
 import time
 from modules.config.settings import WINDOW_SETTINGS, MONITORING_SETTINGS
-from modules.ui.components.top_bar import TopBar
 from modules.ui.views.processes_view import ProcessesView
 from modules.ui.views.system_info_view import SystemInfoView
 from modules.ui.views.performance_view import PerformanceView
@@ -71,7 +70,6 @@ def SystemMonitorApp(page: ft.Page):
 
     # Создаем компоненты
     logger.info("Создание компонентов интерфейса")
-    top_bar = TopBar()
     processes_view = ProcessesView(process_monitor)
     system_info_view = SystemInfoView()
     performance_view = PerformanceView(performance_monitor)
@@ -114,24 +112,31 @@ def SystemMonitorApp(page: ft.Page):
         # Запускаем анимацию в отдельном потоке
         threading.Thread(target=animate_opacity, daemon=True).start()
 
-    # Создание навигации
-    tabs = ft.Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            ft.Tab(text="Процессы", icon=ft.icons.LIST_ALT),
-            ft.Tab(text="О системе", icon=ft.icons.MEMORY),
-            ft.Tab(text="Графики", icon=ft.icons.SHOW_CHART),
-        ],
-        on_change=handle_tab_change,
-    )
-
     # Кнопка для отображения/скрытия логов
     toggle_logs_button = ft.IconButton(
         icon=ft.icons.ARTICLE_OUTLINED,
         tooltip="Показать/скрыть логи",
         on_click=lambda e: toggle_logs(),
     )
+
+    # Кнопка для переключения темы
+    theme_button = ft.IconButton(
+        icon=ft.icons.DARK_MODE,
+        tooltip="Сменить тему",
+        on_click=lambda e: toggle_theme(),
+    )
+
+    def toggle_theme():
+        """Переключает тему приложения между светлой и темной"""
+        if page.theme_mode == ft.ThemeMode.LIGHT:
+            page.theme_mode = ft.ThemeMode.DARK
+            theme_button.icon = ft.icons.LIGHT_MODE
+            logger.info("Включена темная тема")
+        else:
+            page.theme_mode = ft.ThemeMode.LIGHT
+            theme_button.icon = ft.icons.DARK_MODE
+            logger.info("Включена светлая тема")
+        page.update()
 
     def toggle_logs():
         log_area.visible = not log_area.visible
@@ -150,15 +155,26 @@ def SystemMonitorApp(page: ft.Page):
         logger.debug(f"Видимость логов изменена: {log_area.visible}")
         page.update(log_area)
 
+    # Создание навигации
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            ft.Tab(text="Процессы", icon=ft.icons.LIST_ALT),
+            ft.Tab(text="О системе", icon=ft.icons.MEMORY),
+            ft.Tab(text="Графики", icon=ft.icons.SHOW_CHART),
+        ],
+        on_change=handle_tab_change,
+    )
+
     # Добавление элементов на страницу
     logger.info("Добавление элементов на страницу")
     page.add(
         ft.Column(
             [
-                top_bar,
                 ft.Container(
                     content=ft.Row(
-                        [tabs, toggle_logs_button],
+                        [tabs, ft.Row([theme_button, toggle_logs_button])],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
                     padding=ft.padding.only(left=20, right=20),
