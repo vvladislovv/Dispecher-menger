@@ -1,4 +1,5 @@
-flet==0.7.4
+flet>=0.10.0
 psutil>=5.9.0
 matplotlib>=3.5.0
 plotly>=5.10.0
+wmi>=1.5.1; platform_system == "Windows"

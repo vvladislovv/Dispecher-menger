@@ -10,7 +10,14 @@ TABLE_SETTINGS = {
     "padding": 15,
 }
 
-# Список тестовых процессов
+# Настройки мониторинга
+MONITORING_SETTINGS = {
+    "process_update_interval": 2,  # секунды
+    "performance_update_interval": 1,  # секунды
+    "performance_history_length": 60,  # количество точек в истории
+}
+
+# Список тестовых процессов (используется только при отладке)
 TEST_PROCESSES = [
     ["chrome.exe", "1234", "156.2", "2.5", "Running"],
     ["firefox.exe", "2345", "245.7", "3.8", "Running"],
