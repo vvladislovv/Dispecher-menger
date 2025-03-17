@@ -7,6 +7,21 @@ logger = get_logger()
 class ProcessManager:
     @staticmethod
     def filter_processes(processes, search_text):
+        """
+        Фильтрует список процессов по поисковому запросу.
+
+        Аргументы:
+            processes (list): Список процессов для фильтрации
+            search_text (str): Текст для поиска
+
+        Возвращает:
+            list: Отфильтрованный список процессов
+
+        Действия:
+            1. Если поисковый запрос пустой, возвращает исходный список
+            2. Фильтрует процессы по имени и PID, содержащим поисковый запрос
+            3. Возвращает отфильтрованный список
+        """
         logger.debug(f"Фильтрация процессов по тексту: '{search_text}'")
         if not search_text:
             return processes.copy()

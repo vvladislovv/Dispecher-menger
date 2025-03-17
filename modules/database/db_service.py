@@ -52,34 +52,58 @@ class DatabaseService:
             session.close()
 
     def add_terminated_process(self, process_data, terminated_by="user"):
-        """Добавляет информацию о завершенном процессе в базу данных"""
+        """
+        Добавляет информацию о завершенном процессе в базу данных.
+
+        Аргументы:
+            process_data (list): Список с информацией о процессе в формате
+                [name, pid, memory, cpu, status]
+            terminated_by (str, optional): Кто завершил процесс (по умолчанию "user")
+
+        Возвращает:
+            int или None: ID записи в базе данных или None в случае ошибки
+
+        Действия:
+            1. Распаковывает данные процесса
+            2. Преобразует строковые значения в числовые
+            3. Создает запись в таблице terminated_processes
+            4. Сохраняет запись в базе данных
+        """
+        session = None
         try:
             session = self.Session()
 
             # Распаковываем данные процесса
             name, pid, memory, cpu, status = process_data
 
+            print(f"Добавление процесса в БД: {name}, {pid}, {memory}, {cpu}, {status}")
+
             # Преобразуем строковые значения в числовые
             try:
-                memory_float = float(memory.replace(" МБ", "").replace(" ГБ", ""))
-                if " ГБ" in memory:
-                    memory_float *= 1024  # Конвертируем ГБ в МБ
-            except:
+                # Очищаем строку от нечисловых символов, кроме точки
+                memory_str = "".join(c for c in str(memory) if c.isdigit() or c == ".")
+                memory_float = float(memory_str) if memory_str else 0.0
+            except Exception as e:
+                print(f"Ошибка преобразования памяти '{memory}': {str(e)}")
                 memory_float = 0.0
 
             try:
-                cpu_float = float(cpu.replace("%", ""))
-            except:
+                # Очищаем строку от нечисловых символов, кроме точки
+                cpu_str = "".join(c for c in str(cpu) if c.isdigit() or c == ".")
+                cpu_float = float(cpu_str) if cpu_str else 0.0
+            except Exception as e:
+                print(f"Ошибка преобразования CPU '{cpu}': {str(e)}")
                 cpu_float = 0.0
 
+            # Создаем новую запись
             terminated_process = TerminatedProcess(
                 timestamp=datetime.datetime.now(),
-                process_name=name,
-                pid=pid,
+                process_name=str(name),
+                pid=str(pid),
                 memory_usage=memory_float,
                 cpu_usage=cpu_float,
-                status=status,
-                terminated_by=terminated_by,
+                status=str(status),
+                terminated_by=str(terminated_by),
             )
 
             session.add(terminated_process)
@@ -89,11 +113,16 @@ class DatabaseService:
             )
             return terminated_process.id
         except Exception as e:
+            import traceback
+
             print(f"Ошибка при добавлении информации о завершенном процессе: {str(e)}")
-            session.rollback()
+            print(traceback.format_exc())
+            if session:
+                session.rollback()
             return None
         finally:
-            session.close()
+            if session:
+                session.close()
 
     def get_logs(self, limit=100, level=None, start_date=None, end_date=None):
         """Получает логи из базы данных с возможностью фильтрации"""

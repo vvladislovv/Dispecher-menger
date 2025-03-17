@@ -70,23 +70,39 @@ class ProcessHandler:
             return []
 
     @staticmethod
-    def terminate_process(pid):
-        """Завершение процесса по PID"""
+    def terminate_process(pid, process_info=None):
+        """
+        Завершает процесс с указанным идентификатором (PID).
+
+        Аргументы:
+            pid (str): Идентификатор процесса для завершения
+            process_info (list, optional): Информация о процессе в формате
+                [name, pid, memory, cpu, status]. Если не указана, будет получена автоматически.
+
+        Возвращает:
+            bool: True, если процесс успешно завершен, False в противном случае
+
+        Действия:
+            1. Получает информацию о процессе, если она не передана
+            2. Пытается завершить процесс стандартным способом
+            3. Если не удалось, пытается завершить с повышенными привилегиями
+            4. Сохраняет информацию о завершенном процессе в базу данных
+        """
         logger.warning(f"Попытка завершения процесса с PID: {pid}")
 
-        # Получаем информацию о процессе перед завершением
-        process_info = None
-        try:
-            process = psutil.Process(int(pid))
-            name = process.name()
-            memory = f"{process.memory_info().rss / (1024 * 1024):.2f}"
-            cpu = f"{process.cpu_percent(interval=0.1):.1f}"
-            status = process.status()
-            process_info = [name, pid, memory, cpu, status]
-        except Exception as e:
-            logger.warning(
-                f"Не удалось получить полную информацию о процессе перед завершением: {str(e)}"
-            )
+        # Если информация о процессе не передана, получаем ее
+        if process_info is None:
+            try:
+                process = psutil.Process(int(pid))
+                name = process.name()
+                memory = f"{process.memory_info().rss / (1024 * 1024):.2f}"
+                cpu = f"{process.cpu_percent(interval=0.1):.1f}"
+                status = process.status()
+                process_info = [name, pid, memory, cpu, status]
+            except Exception as e:
+                logger.warning(
+                    f"Не удалось получить полную информацию о процессе перед завершением: {str(e)}"
+                )
 
         # Пытаемся завершить процесс
         try:

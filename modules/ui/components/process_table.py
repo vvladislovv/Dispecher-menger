@@ -1,41 +1,149 @@
 import flet as ft
 from modules.utils.process_manager import ProcessManager
 
-# Глобальные переменные для хранения состояния сортировки
+# Глобальные переменные для сохранения состояния сортировки
 _sort_column = None
 _sort_ascending = True
 
 
+def sort_processes(processes, column, ascending=True):
+    """Сортировка процессов по указанному столбцу"""
+    if column == 0:  # Имя
+        return sorted(processes, key=lambda x: x[0].lower(), reverse=not ascending)
+    elif column == 1:  # PID
+        return sorted(processes, key=lambda x: int(x[1]), reverse=not ascending)
+    elif column == 2:  # Память
+        return sorted(processes, key=lambda x: float(x[2]), reverse=not ascending)
+    elif column == 3:  # CPU
+        return sorted(processes, key=lambda x: float(x[3]), reverse=not ascending)
+    elif column == 4:  # Статус
+        return sorted(processes, key=lambda x: x[4], reverse=not ascending)
+    return processes
+
+
+def kill_process(e, pid):
+    """
+    Обработчик нажатия на кнопку завершения процесса.
+
+    Аргументы:
+        e (ControlEvent): Событие нажатия на кнопку
+        pid (str): Идентификатор процесса для завершения
+
+    Действия:
+        1. Получает функцию обратного вызова из свойств кнопки
+        2. Вызывает функцию обратного вызова с передачей PID процесса
+        3. Обработка ошибок и логирование
+    """
+    try:
+        # Получаем функцию обратного вызова из свойств кнопки
+        on_kill = e.control.data
+
+        # Вызываем функцию обратного вызова
+        if on_kill:
+            success = on_kill(pid)
+
+            # Не вызываем update() для кнопки, так как она будет обновлена вместе с таблицей
+            # e.control.update()  # Удаляем эту строку, которая вызывает ошибку
+
+            # Если нужно показать результат, можно использовать диалоговое окно или снэкбар
+            if not success:
+                # Здесь можно показать сообщение об ошибке, если нужно
+                pass
+    except Exception as e:
+        import traceback
+
+        print(f"Ошибка при завершении процесса: {str(e)}")
+        print(traceback.format_exc())
+
+
 def ProcessTable(processes, on_kill=None):
-    """Функция для создания таблицы процессов с возможностью сортировки"""
-    # Используем глобальные переменные для сохранения состояния сортировки
+    """Создает таблицу процессов"""
     global _sort_column, _sort_ascending
 
-    # Сохраняем исходные данные для сортировки
-    current_processes = processes.copy()
+    # Создаем таблицу
+    table = ft.DataTable(
+        columns=[
+            ft.DataColumn(ft.Text("Имя"), on_sort=lambda e: handle_sort(e, 0)),
+            ft.DataColumn(ft.Text("PID"), on_sort=lambda e: handle_sort(e, 1)),
+            ft.DataColumn(ft.Text("Память (МБ)"), on_sort=lambda e: handle_sort(e, 2)),
+            ft.DataColumn(ft.Text("CPU %"), on_sort=lambda e: handle_sort(e, 3)),
+            ft.DataColumn(ft.Text("Статус"), on_sort=lambda e: handle_sort(e, 4)),
+            ft.DataColumn(ft.Text("Действия")),
+        ],
+        rows=[],
+        sort_column_index=_sort_column,
+        sort_ascending=_sort_ascending,
+        heading_row_height=35,
+        data_row_min_height=35,
+        data_row_max_height=50,
+        border=ft.border.all(1, ft.colors.OUTLINE),
+        border_radius=10,
+        vertical_lines=ft.border.BorderSide(1, ft.colors.OUTLINE),
+        horizontal_lines=ft.border.BorderSide(1, ft.colors.OUTLINE),
+        column_spacing=10,
+    )
 
-    # Если уже была установлена сортировка, применяем её
-    if _sort_column is not None:
-        current_processes = sort_processes(
-            current_processes, _sort_column, _sort_ascending
+    # Добавляем строки в таблицу
+    for process in processes:
+        name, pid, memory, cpu, status = process
+
+        # Создаем кнопку завершения процесса
+        kill_button = ft.IconButton(
+            icon=ft.icons.CLOSE,
+            tooltip="Завершить процесс",
+            icon_color=ft.colors.RED_400,
+            data=on_kill,  # Сохраняем функцию обратного вызова в свойствах кнопки
+            on_click=lambda e, pid=pid: kill_process(e, pid),
         )
 
-    # Функция для создания строк таблицы
-    def create_rows(processes_list):
-        rows = []
-        for process in processes_list:
+        table.rows.append(
+            ft.DataRow(
+                cells=[
+                    ft.DataCell(ft.Text(name)),
+                    ft.DataCell(ft.Text(pid)),
+                    ft.DataCell(ft.Text(memory)),
+                    ft.DataCell(ft.Text(cpu)),
+                    ft.DataCell(ft.Text(status)),
+                    ft.DataCell(kill_button),
+                ]
+            )
+        )
+
+    # Функция для обработки сортировки
+    def handle_sort(e, column_index):
+        global _sort_column, _sort_ascending
+
+        # Если нажали на тот же столбец, меняем направление сортировки
+        if _sort_column == column_index:
+            _sort_ascending = not _sort_ascending
+        else:
+            _sort_column = column_index
+            _sort_ascending = True
+
+        # Обновляем состояние сортировки в таблице
+        table.sort_column_index = _sort_column
+        table.sort_ascending = _sort_ascending
+
+        # Сортируем процессы
+        sorted_processes = sort_processes(processes, _sort_column, _sort_ascending)
+
+        # Очищаем таблицу
+        table.rows.clear()
+
+        # Добавляем отсортированные строки
+        for process in sorted_processes:
             name, pid, memory, cpu, status = process
 
             # Создаем кнопку завершения процесса
             kill_button = ft.IconButton(
                 icon=ft.icons.CLOSE,
-                icon_color=ft.colors.RED,
                 tooltip="Завершить процесс",
+                icon_color=ft.colors.RED_400,
+                data=on_kill,
                 on_click=lambda e, pid=pid: kill_process(e, pid),
             )
 
-            # Добавляем строку
-            rows.append(
+            table.rows.append(
                 ft.DataRow(
                     cells=[
                         ft.DataCell(ft.Text(name)),
@@ -47,137 +155,8 @@ def ProcessTable(processes, on_kill=None):
                     ]
                 )
             )
-        return rows
 
-    # Функция для обработки завершения процесса
-    def kill_process(e, pid):
-        if on_kill:
-            success = on_kill(pid)
-            if success:
-                e.control.icon_color = ft.colors.GREEN
-                e.control.tooltip = "Процесс завершен"
-            else:
-                e.control.icon_color = ft.colors.AMBER
-                e.control.tooltip = "Не удалось завершить процесс"
-            e.control.update()
-
-    # Функция для сортировки данных
-    def sort_data(e, column_index, table):
-        global _sort_column, _sort_ascending
-
-        # Если нажали на тот же столбец, меняем порядок сортировки
-        if _sort_column == column_index:
-            _sort_ascending = not _sort_ascending
-        else:
-            _sort_column = column_index
-            # По умолчанию для имени - по возрастанию (A-Z)
-            # Для числовых столбцов (PID, память, CPU) - по убыванию
-            _sort_ascending = column_index == 0
-
-        # Сортируем процессы
-        sorted_processes = sort_processes(
-            current_processes, _sort_column, _sort_ascending
-        )
-
-        # Обновляем строки таблицы
-        table.rows = create_rows(sorted_processes)
+        # Обновляем таблицу
         table.update()
 
-    # Создаем таблицу
-    table = ft.DataTable(
-        columns=[
-            ft.DataColumn(
-                ft.Row(
-                    [
-                        ft.Text("Имя процесса", weight=ft.FontWeight.BOLD),
-                        ft.IconButton(
-                            icon=ft.icons.SORT,
-                            tooltip="Сортировать по имени",
-                            on_click=lambda e: sort_data(e, 0, table),
-                        ),
-                    ]
-                )
-            ),
-            ft.DataColumn(
-                ft.Row(
-                    [
-                        ft.Text("PID", weight=ft.FontWeight.BOLD),
-                        ft.IconButton(
-                            icon=ft.icons.SORT,
-                            tooltip="Сортировать по PID",
-                            on_click=lambda e: sort_data(e, 1, table),
-                        ),
-                    ]
-                )
-            ),
-            ft.DataColumn(
-                ft.Row(
-                    [
-                        ft.Text("Память (МБ)", weight=ft.FontWeight.BOLD),
-                        ft.IconButton(
-                            icon=ft.icons.SORT,
-                            tooltip="Сортировать по использованию памяти",
-                            on_click=lambda e: sort_data(e, 2, table),
-                        ),
-                    ]
-                )
-            ),
-            ft.DataColumn(
-                ft.Row(
-                    [
-                        ft.Text("CPU (%)", weight=ft.FontWeight.BOLD),
-                        ft.IconButton(
-                            icon=ft.icons.SORT,
-                            tooltip="Сортировать по использованию CPU",
-                            on_click=lambda e: sort_data(e, 3, table),
-                        ),
-                    ]
-                )
-            ),
-            ft.DataColumn(ft.Text("Статус", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Действия", weight=ft.FontWeight.BOLD)),
-        ],
-        rows=create_rows(current_processes),
-        horizontal_lines=ft.border.BorderSide(1, ft.colors.OUTLINE),
-        vertical_lines=ft.border.BorderSide(1, ft.colors.OUTLINE),
-        border=ft.border.all(1, ft.colors.OUTLINE),
-        border_radius=10,
-        column_spacing=10,
-        heading_row_height=40,
-        data_row_min_height=40,
-        data_row_max_height=50,
-        show_checkbox_column=False,
-    )
-
     return table
-
-
-def sort_processes(processes, column_index, ascending):
-    """Сортировка процессов по указанному столбцу"""
-    if column_index is None:
-        return processes
-
-    # Функция для преобразования значения в числовой формат для сортировки
-    def get_sort_key(process, idx):
-        value = process[idx]
-        if idx == 0:  # Имя процесса - строка
-            return value.lower()
-        elif idx == 1:  # PID - число в строковом формате
-            return int(value)
-        elif idx in [
-            2,
-            3,
-        ]:  # Память и CPU - числа с плавающей точкой в строковом формате
-            return float(value.replace("%", ""))
-        return value
-
-    # Копируем процессы для сортировки
-    sorted_processes = processes.copy()
-
-    # Сортируем процессы
-    sorted_processes.sort(
-        key=lambda x: get_sort_key(x, column_index),
-        reverse=not ascending if column_index == 0 else ascending,
-    )
-
-    return sorted_processes

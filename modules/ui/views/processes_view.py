@@ -90,8 +90,44 @@ class ProcessesView(ft.Container):
         self.update()
 
     def kill_process(self, pid):
-        """Завершение процесса"""
-        return self.process_monitor.kill_process(pid)
+        """
+        Завершает процесс с указанным идентификатором (PID).
+
+        Аргументы:
+            pid (str): Идентификатор процесса для завершения
+
+        Возвращает:
+            bool: True, если процесс успешно завершен, False в противном случае
+
+        Действия:
+            1. Находит информацию о процессе в текущем списке процессов
+            2. Передает информацию о процессе в метод kill_process монитора процессов
+            3. Обновление UI происходит автоматически через callback
+        """
+        try:
+            # Получаем информацию о процессе перед завершением
+            process_info = None
+            for proc in self.processes:
+                if proc[1] == pid:  # Ищем процесс с нужным PID
+                    process_info = proc
+                    break
+
+            # Завершаем процесс через process_monitor
+            # Передаем информацию о процессе, чтобы не записывать ее дважды
+            success = self.process_monitor.kill_process(pid, process_info)
+
+            # Обновляем список процессов
+            if success:
+                # Обновление произойдет автоматически через callback
+                pass
+
+            return success
+        except Exception as e:
+            import traceback
+
+            print(f"Ошибка при завершении процесса: {str(e)}")
+            print(traceback.format_exc())
+            return False
 
     def handle_search(self, e):
         """Обработка поиска"""
@@ -115,3 +151,41 @@ class ProcessesView(ft.Container):
             filtered_processes, on_kill=self.kill_process
         )
         self.update()
+
+    def terminate_process(self, e, pid):
+        """Обработчик нажатия на кнопку завершения процесса"""
+        try:
+            # Получаем информацию о процессе перед завершением
+            process_info = None
+            for row in self.process_table.rows:
+                if row.cells[1].content.value == pid:  # Ищем строку с нужным PID
+                    name = row.cells[0].content.value
+                    memory = row.cells[2].content.value
+                    cpu = row.cells[3].content.value
+                    status = row.cells[4].content.value
+                    process_info = [name, pid, memory, cpu, status]
+                    break
+
+            # Вызываем метод завершения процесса
+            success = self.process_monitor.terminate_process(pid)
+
+            if success:
+                # Если процесс успешно завершен, обновляем список процессов
+                self.update_processes()
+
+                # Проверяем, что информация о процессе была сохранена в БД
+                if process_info:
+                    from modules.database.db_service import get_db_service
+
+                    db_service = get_db_service()
+                    db_service.add_terminated_process(process_info)
+                    print(f"Процесс {name} (PID: {pid}) сохранен в БД")
+            else:
+                # Если не удалось завершить процесс, показываем сообщение об ошибке
+                self.show_error_message(f"Не удалось завершить процесс с PID {pid}")
+        except Exception as e:
+            import traceback
+
+            print(f"Ошибка при завершении процесса: {str(e)}")
+            print(traceback.format_exc())
+            self.show_error_message(f"Ошибка при завершении процесса: {str(e)}")

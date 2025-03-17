@@ -109,14 +109,46 @@ class ProcessMonitor:
         with self.lock:
             return self.processes.copy()
 
-    def kill_process(self, pid):
-        """Завершение процесса по PID"""
+    def kill_process(self, pid, process_info=None):
+        """
+        Завершает процесс с указанным идентификатором (PID).
+
+        Аргументы:
+            pid (str): Идентификатор процесса для завершения
+            process_info (list, optional): Информация о процессе в формате
+                [name, pid, memory, cpu, status]. Если не указана, будет получена автоматически.
+
+        Возвращает:
+            bool: True, если процесс успешно завершен, False в противном случае
+
+        Действия:
+            1. Вызывает метод terminate_process из ProcessHandler
+            2. Обновляет список процессов, если завершение успешно
+            3. Уведомляет UI об изменениях через callback
+        """
         try:
-            pid = int(pid)
-            process = psutil.Process(pid)
-            process.terminate()
-            return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+            from modules.system.process_handler import ProcessHandler
+
+            # Используем ProcessHandler для завершения процесса
+            # Передаем информацию о процессе, если она есть
+            success = ProcessHandler.terminate_process(pid, process_info)
+
+            # Обновляем список процессов
+            if success:
+                new_processes = self._get_processes()
+                with self.lock:
+                    self.processes = new_processes
+
+                # Уведомляем UI об изменениях
+                for callback in self.callbacks:
+                    self.callback_queue.put((callback, self.processes.copy()))
+
+            return success
+        except Exception as e:
+            import traceback
+
+            print(f"Ошибка при завершении процесса: {str(e)}")
+            print(traceback.format_exc())
             return False
 
     def register_callback(self, callback):

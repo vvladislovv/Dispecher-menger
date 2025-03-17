@@ -22,14 +22,6 @@ MONITORING_SETTINGS = {
     "performance_history_length": 60,  # количество точек в истории
 }
 
-# Список тестовых процессов (используется только при отладке)
-TEST_PROCESSES = [
-    ["chrome.exe", "1234", "156.2", "2.5", "Running"],
-    ["firefox.exe", "2345", "245.7", "3.8", "Running"],
-    ["code.exe", "3456", "380.4", "4.2", "Running"],
-    # ... добавьте остальные процессы из gui.py ...
-]
-
 
 # Функция для загрузки настроек
 def load_settings():
