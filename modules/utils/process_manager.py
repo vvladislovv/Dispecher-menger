@@ -1,10 +1,17 @@
+from modules.utils.logger import get_logger
+
+# Инициализация логгера
+logger = get_logger()
+
+
 class ProcessManager:
     @staticmethod
     def filter_processes(processes, search_text):
+        logger.debug(f"Фильтрация процессов по тексту: '{search_text}'")
         if not search_text:
             return processes.copy()
         search_text = search_text.lower()
-        return [
+        filtered_processes = [
             process
             for process in processes
             if search_text in process[0].lower()
@@ -13,15 +20,26 @@ class ProcessManager:
             or search_text in process[3]
             or search_text in process[4].lower()
         ]
+        logger.info(
+            f"Отфильтровано {len(filtered_processes)} из {len(processes)} процессов"
+        )
+        return filtered_processes
 
     @staticmethod
     def sort_processes(processes, column_index, ascending=True):
+        logger.debug(
+            f"Сортировка процессов по колонке {column_index}, ascending={ascending}"
+        )
+
         def to_number(value):
             try:
                 return float(
                     value.replace(" ГБ", "").replace(" МБ", "").replace("%", "")
                 )
-            except:
+            except Exception as e:
+                logger.warning(
+                    f"Ошибка преобразования значения '{value}' в число: {str(e)}"
+                )
                 return 0
 
         if column_index == 0:  # Имя процесса
@@ -33,6 +51,11 @@ class ProcessManager:
         elif column_index == 3:  # CPU %
             key = lambda x: to_number(x[3])
         else:
+            logger.warning(
+                f"Неизвестный индекс колонки: {column_index}, используется сортировка по имени"
+            )
             key = lambda x: x[0].lower()
 
-        return sorted(processes, key=key, reverse=not ascending)
+        sorted_processes = sorted(processes, key=key, reverse=not ascending)
+        logger.debug(f"Процессы отсортированы успешно")
+        return sorted_processes

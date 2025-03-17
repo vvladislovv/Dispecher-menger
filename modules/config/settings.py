@@ -1,3 +1,8 @@
+from modules.utils.logger import get_logger
+
+# Инициализация логгера
+logger = get_logger()
+
 # Настройки приложения
 WINDOW_SETTINGS = {
     "title": "Системный монитор",
@@ -24,3 +29,36 @@ TEST_PROCESSES = [
     ["code.exe", "3456", "380.4", "4.2", "Running"],
     # ... добавьте остальные процессы из gui.py ...
 ]
+
+
+# Функция для загрузки настроек
+def load_settings():
+    logger.info("Загрузка настроек приложения")
+    try:
+        # Здесь можно добавить код для загрузки настроек из файла
+        logger.info("Настройки успешно загружены")
+        return {
+            "window": WINDOW_SETTINGS,
+            "table": TABLE_SETTINGS,
+            "monitoring": MONITORING_SETTINGS,
+        }
+    except Exception as e:
+        logger.exception(e, "Ошибка при загрузке настроек:")
+        # Возвращаем настройки по умолчанию в случае ошибки
+        return {
+            "window": WINDOW_SETTINGS,
+            "table": TABLE_SETTINGS,
+            "monitoring": MONITORING_SETTINGS,
+        }
+
+
+# Функция для сохранения настроек
+def save_settings(settings):
+    logger.info("Сохранение настроек приложения")
+    try:
+        # Здесь можно добавить код для сохранения настроек в файл
+        logger.info("Настройки успешно сохранены")
+        return True
+    except Exception as e:
+        logger.exception(e, "Ошибка при сохранении настроек:")
+        return False

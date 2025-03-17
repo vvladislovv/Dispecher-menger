@@ -1,0 +1,92 @@
+import datetime
+import os
+import inspect
+import traceback
+
+
+class Logger:
+    _instance = None
+    _log_file = None
+    _chat_callback = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = Logger()
+        return cls._instance
+
+    def __init__(self):
+        if Logger._instance is not None:
+            raise Exception("Logger - это Singleton класс!")
+
+        # Создаем директорию для логов, если её нет
+        log_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs"
+        )
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Создаем файл лога с текущей датой
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        log_path = os.path.join(log_dir, f"log_{current_date}.log")
+        self._log_file = open(log_path, "a", encoding="utf-8")
+
+    def set_chat_callback(self, callback):
+        """Устанавливает функцию обратного вызова для отображения логов в чате"""
+        self._chat_callback = callback
+
+    def log(self, message, level="INFO"):
+        """Записывает сообщение в лог и отправляет в чат, если установлен callback"""
+        # Получаем информацию о вызывающем файле и функции
+        caller_frame = inspect.currentframe().f_back
+        caller_info = inspect.getframeinfo(caller_frame)
+        file_name = os.path.basename(caller_info.filename)
+        line_number = caller_info.lineno
+        function_name = caller_info.function
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_message = f"[{timestamp}] [{level}] [{file_name}:{function_name}:{line_number}] {message}"
+
+        # Запись в файл
+        self._log_file.write(log_message + "\n")
+        self._log_file.flush()
+
+        # Отправка в чат, если установлен callback
+        if self._chat_callback:
+            self._chat_callback(log_message)
+
+        return log_message
+
+    def info(self, message):
+        return self.log(message, "INFO")
+
+    def warning(self, message):
+        return self.log(message, "WARNING")
+
+    def error(self, message, include_traceback=True):
+        if include_traceback:
+            tb = traceback.format_exc()
+            if tb != "NoneType: None\n":
+                message = f"{message}\n{tb}"
+        return self.log(message, "ERROR")
+
+    def debug(self, message):
+        return self.log(message, "DEBUG")
+
+    def exception(self, e, message="Произошло исключение:"):
+        """Логирует исключение с трассировкой"""
+        error_message = f"{message} {str(e)}"
+        tb = traceback.format_exc()
+        return self.log(f"{error_message}\n{tb}", "ERROR")
+
+    def __del__(self):
+        if self._log_file:
+            self._log_file.close()
+
+
+# Функция для удобного получения экземпляра логгера
+def get_logger():
+    return Logger.get_instance()
+
+
+# Убедимся, что функция доступна при импорте
+__all__ = ["Logger", "get_logger"]
