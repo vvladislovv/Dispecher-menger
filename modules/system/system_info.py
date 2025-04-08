@@ -1,9 +1,7 @@
 import platform
 import psutil
 import socket
-import os
 import time
-from datetime import datetime, timedelta
 
 
 class SystemInfo:

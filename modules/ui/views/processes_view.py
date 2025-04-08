@@ -6,7 +6,6 @@ from modules.ui.components.process_table import (
     _sort_ascending,
 )
 from modules.config.settings import TABLE_SETTINGS
-from modules.system.process_monitor import ProcessMonitor
 
 
 class ProcessesView(ft.Container):

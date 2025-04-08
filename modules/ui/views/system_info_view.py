@@ -3,7 +3,6 @@ from modules.system.system_info import SystemInfo
 import threading
 import platform
 import psutil
-import datetime
 import time
 import subprocess
 
